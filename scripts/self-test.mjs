@@ -23,7 +23,7 @@ const {
 const { encryptToken, decryptToken } = await import("../src/crypto.js");
 const { getDb, closeDb } = await import("../src/db.js");
 const { listMediaFiles, fileAtRound, takeNextLine, lineAt, moveToPosted } = await import("../src/media.js");
-const { planJob, previewJob, commentAction, recoverInterruptedJobs } = await import("../src/jobs.js");
+const { planJob, previewJob, commentAction, recoverInterruptedJobs, previewRetry, createRetryJob } = await import("../src/jobs.js");
 const { composeCaption, composeComment, ensureIncreasing, parseScheduleList, vnDayKey } = await import("../src/content.js");
 const { machineCode, signLicense, readLicenseToken, licenseStatus, activateLicense } = await import("../src/license.js");
 const { compareVersions, checkOnce, releaseApply, settleUpdateState } = await import("../src/update.js");
@@ -324,13 +324,67 @@ const unknown = db.prepare(`SELECT status FROM post_logs WHERE media_path LIKE '
 assert.equal(unknown.status, "unknown");
 assert.deepEqual(listMediaFiles(folder, "video").map((file) => path.basename(file)), ["b.mp4"]);
 
+db.prepare(`INSERT INTO jobs (id, type, title, status, tasks_json) VALUES ('job-fail', 'now', 'loi', 'done', ?)`)
+  .run(JSON.stringify([
+    {
+      id: "ok1", status: "ok", page_row_id: page.lastInsertRowid, account_id: account.lastInsertRowid,
+      page_id: "99", page_name: "Page Test", fb_post_id: "555", caption: "da len",
+      opts: { delivery: "now", post_type: "text" },
+    },
+    {
+      id: "spam1", status: "fail", page_row_id: page.lastInsertRowid, account_id: account.lastInsertRowid,
+      page_id: "99", page_name: "Page Test",
+      error: "We limit how often you can post to protect the community from spam",
+      caption: "spam", opts: { delivery: "now", post_type: "text" },
+    },
+    {
+      id: "old1", status: "fail", page_row_id: page.lastInsertRowid, account_id: account.lastInsertRowid,
+      page_id: "99", page_name: "Page Test", error: "Hết giờ", caption: "hen cu", unix: 100,
+      opts: { delivery: "schedule", post_type: "text" },
+    },
+    {
+      id: "net1", status: "fail", page_row_id: page.lastInsertRowid, account_id: account.lastInsertRowid,
+      page_id: "99", page_name: "Page Test", error: "Không kết nối được Facebook", caption: "mang",
+      claimed_file: path.join(folder, "b.mp4"), video_title: "Title loi",
+      opts: { delivery: "now", post_type: "video", media_folder: folder },
+    },
+  ]));
+db.prepare(`INSERT INTO jobs (id, type, title, status, tasks_json) VALUES ('job-live', 'now', 'live', 'running', ?)`)
+  .run(JSON.stringify([{
+    id: "live-fail", status: "fail", error: "tam", caption: "dang chay",
+    opts: { delivery: "now", post_type: "text" },
+  }]));
+assert.equal(previewRetry().count, 2);
+const retry = createRetryJob({ start: false });
+assert.match(retry.title, /Đăng lại bài lỗi · 2 bài/);
+const retryTasks = JSON.parse(db.prepare(`SELECT tasks_json FROM jobs WHERE id = ?`).get(retry.id).tasks_json);
+assert.equal(retryTasks.length, 2);
+const net = retryTasks.find((task) => task.source_task_id === "net1");
+assert.equal(net.caption, "mang");
+assert.equal(net.video_title, "Title loi");
+assert.equal(net.status, "pending");
+assert.equal(net.fb_post_id, undefined);
+assert.ok(String(net.claimed_file).endsWith("b.mp4"));
+const past = retryTasks.find((task) => task.source_task_id === "old1");
+assert.equal(past.opts.delivery, "now");
+assert.equal(past.unix, null);
+assert.equal(retryTasks.some((task) => task.source_task_id === "spam1"), false);
+const savedFails = JSON.parse(db.prepare(`SELECT tasks_json FROM jobs WHERE id = 'job-fail'`).get().tasks_json);
+assert.equal(savedFails.find((task) => task.id === "net1").retried, true);
+assert.equal(savedFails.find((task) => task.id === "spam1").retried, undefined);
+assert.equal(savedFails.find((task) => task.id === "ok1").retried, undefined);
+const liveFail = JSON.parse(db.prepare(`SELECT tasks_json FROM jobs WHERE id = 'job-live'`).get().tasks_json);
+assert.equal(liveFail[0].retried, undefined);
+assert.equal(previewRetry().count, 0);
+assert.throws(() => createRetryJob({ start: false }), /Không có bài lỗi/);
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const licenseSource = fs.readFileSync(path.join(root, "src", "license.js"), "utf8");
 const publicPem = fs.readFileSync(path.join(root, "src", "license-public.pem"), "utf8").trim();
 assert.equal(licenseSource.includes("PRIVATE KEY"), false);
 assert.ok(licenseSource.includes(publicPem));
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-assert.equal(pkg.version, "1.1.10");
+assert.equal(pkg.version, "1.1.11");
 assert.equal(JSON.stringify(pkg.build.files).includes("keys"), false);
 
 const privatePem = fs.readFileSync(path.join(root, "keys", "license-private.pem"), "utf8");
@@ -438,7 +492,7 @@ const port = server.address().port;
 const base = `http://127.0.0.1:${port}`;
 const health = await fetch(`${base}/api/health`).then((res) => res.json());
 assert.equal(health.ok, true);
-assert.equal(health.version, "1.1.10");
+assert.equal(health.version, "1.1.11");
 const lockedAccounts = await fetch(`${base}/api/accounts`);
 assert.equal(lockedAccounts.status, 403);
 const lockedJob = await fetch(`${base}/api/jobs/now`, {
@@ -634,6 +688,7 @@ assert.match(html, /id="jobPct"/);
 assert.match(html, /id="jobs" class="scroll-box"/);
 assert.match(html, /id="logs" class="scroll-box"/);
 assert.match(html, /id="btnUpdate"/);
+assert.match(html, /id="btnRetry"/);
 assert.match(html, /id="updateBox"/);
 assert.match(html, /id="postedFolder"/);
 assert.match(html, /id="btnPosted"/);
@@ -646,6 +701,8 @@ assert.match(appJs, /data-open/);
 assert.match(appJs, /Đang chạy/);
 assert.match(appJs, /job.status === "running"/);
 assert.match(appJs, /applyUpdate/);
+assert.match(appJs, /Đăng lại bài lỗi/);
+assert.match(appJs, /\/api\/jobs\/retry/);
 assert.match(appJs, /Cập nhật/);
 assert.match(appJs, /await start\("now"/);
 assert.match(appJs, /await start\("schedule", "list"/);

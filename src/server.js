@@ -8,6 +8,8 @@ import { createPickGroup, deletePickGroup, listPickGroups } from "./groups.js";
 import {
   createCommentJob,
   createJob,
+  createRetryJob,
+  previewRetry,
   currentSettings,
   rememberSettings,
   previewJob,
@@ -120,6 +122,10 @@ async function route(req, res) {
     });
   }
 
+  if (req.method === "GET" && pathname === "/api/jobs/retry") {
+    return send(res, 200, previewRetry());
+  }
+
   const jobGet = pathname.match(/^\/api\/jobs\/([^/]+)$/);
   if (req.method === "GET" && jobGet) {
     const job = getJob(jobGet[1]);
@@ -182,6 +188,9 @@ async function route(req, res) {
   }
   if (req.method === "POST" && pathname === "/api/jobs/direct") {
     return send(res, 200, { job: createJob({ ...body, delivery: "direct" }) });
+  }
+  if (req.method === "POST" && pathname === "/api/jobs/retry") {
+    return send(res, 200, { job: createRetryJob() });
   }
   if (req.method === "POST" && pathname === "/api/comments/send-pending") {
     return send(res, 200, { job: createCommentJob() });

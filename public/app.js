@@ -776,6 +776,24 @@ document.addEventListener("click", async (event) => {
       await start("direct", "interval", "Đăng trực tiếp — app phải mở đến khi xong");
       return;
     }
+    if (button.id === "btnRetry") {
+      const preview = await api("/api/jobs/retry");
+      if (!preview.count) {
+        flash(preview.held
+          ? "Token đang bị Facebook chặn spam. Chưa đăng lại bài của token đó."
+          : "Không có bài lỗi để đăng lại.");
+        return;
+      }
+      const ok = await ask(
+        "Đăng lại bài lỗi",
+        `Đăng lại ${preview.count} bài lỗi. Bài bị chặn spam và bài app đóng giữa chừng không đăng lại.`,
+      );
+      if (!ok) return;
+      const data = await api("/api/jobs/retry", { method: "POST", body: "{}" });
+      flash(`Đang đăng lại ${data.job?.progress?.total || preview.count} bài lỗi.`, true);
+      await refresh();
+      return;
+    }
     if (button.id === "btnComments") {
       const data = await api("/api/comments/send-pending", { method: "POST", body: "{}" });
       flash(`Đang gửi comment chờ · job ${data.job?.id || ""}`, true);

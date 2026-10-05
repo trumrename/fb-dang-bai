@@ -503,6 +503,114 @@ export function createJob(input) {
   return getJob(id);
 }
 
+function canRetryTask(task) {
+  if (!task || task.status !== "fail" || task.retried || task.fb_post_id) return false;
+  const text = `${task.error || ""}\n${task.message || ""}`;
+  if (isCommunitySpamBlock(text)) return false;
+  if (/App đóng|Không đăng lại file/i.test(text)) return false;
+  return true;
+}
+
+function cloneRetryTask(task) {
+  const opts = { ...(task.opts || {}) };
+  let unix = task.unix || null;
+  if (opts.delivery === "schedule") {
+    try {
+      validateScheduleUnix(unix);
+    } catch {
+      opts.delivery = "now";
+      unix = null;
+    }
+  }
+  const file = String(task.claimed_file || "");
+  if (file) reservedFiles.add(normPath(file));
+  return {
+    id: newId(),
+    status: "pending",
+    page_row_id: task.page_row_id,
+    account_id: task.account_id,
+    page_id: task.page_id,
+    page_name: task.page_name,
+    round: task.round || 1,
+    unix,
+    message: "Đăng lại",
+    error: "",
+    post_url: "",
+    prepared: false,
+    claimed_file: file,
+    posted: false,
+    caption: task.caption,
+    video_title: task.video_title,
+    comment_text: task.comment_text,
+    opts,
+    source_task_id: task.id,
+  };
+}
+
+function collectRetry() {
+  const rows = getDb().prepare(
+    `SELECT * FROM jobs WHERE status NOT IN ('running', 'queued') ORDER BY created_at DESC LIMIT 50`
+  ).all();
+  const copies = [];
+  const updates = new Map();
+  let held = 0;
+  for (const row of rows) {
+    if (live.has(row.id)) continue;
+    const tasks = readTasks(row);
+    let changed = false;
+    for (const task of tasks) {
+      if (!canRetryTask(task)) continue;
+      if (spamHold.has(task.account_id)) {
+        held += 1;
+        continue;
+      }
+      if (copies.length >= 300) break;
+      copies.push(cloneRetryTask(task));
+      task.retried = true;
+      changed = true;
+    }
+    if (changed) updates.set(row.id, tasks);
+    if (copies.length >= 300) break;
+  }
+  return { copies, updates, held };
+}
+
+export function previewRetry() {
+  const rows = getDb().prepare(
+    `SELECT * FROM jobs WHERE status NOT IN ('running', 'queued') ORDER BY created_at DESC LIMIT 50`
+  ).all();
+  let count = 0;
+  let held = 0;
+  for (const row of rows) {
+    if (live.has(row.id)) continue;
+    for (const task of readTasks(row)) {
+      if (!canRetryTask(task)) continue;
+      if (spamHold.has(task.account_id)) held += 1;
+      else count += 1;
+      if (count >= 300) return { count, held };
+    }
+  }
+  return { count, held };
+}
+
+export function createRetryJob(options = {}) {
+  const { copies, updates, held } = collectRetry();
+  if (!copies.length) {
+    if (held) throw new Error("Token đang bị Facebook chặn spam. Chưa đăng lại bài của token đó.");
+    throw new Error("Không có bài lỗi để đăng lại.");
+  }
+  const id = newId();
+  for (const task of copies) task.job_id = id;
+  const db = getDb();
+  db.transaction(() => {
+    for (const [jobId, tasks] of updates) saveJob(jobId, tasks);
+    db.prepare(`INSERT INTO jobs (id, type, title, status, tasks_json) VALUES (?, 'retry', ?, 'running', ?)`)
+      .run(id, `Đăng lại bài lỗi · ${copies.length} bài`, JSON.stringify(copies));
+  })();
+  if (options.start !== false) startWorker(id);
+  return getJob(id);
+}
+
 export function createCommentJob() {
   const rows = getDb().prepare(
     `SELECT id, page_row_id, account_id, page_id, page_name, fb_post_id, comment_text
