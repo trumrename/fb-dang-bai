@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FB Đăng Bài</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>FB Đăng Bài <span class="ver" id="appVer"></span></h1>
+      <div class="sub">Đăng ngay API · Hẹn giờ hàng loạt · Hẹn theo ngày · Đăng trực tiếp</div>
+    </div>
+    <div class="update-side">
+      <div class="sub" id="version"></div>
+      <div class="update-box" id="updateBox" hidden>
+        <span class="note" id="updateLine"></span>
+        <button type="button" class="primary" id="btnUpdate" hidden>Cập nhật</button>
+      </div>
+    </div>
+  </header>
+  <p id="flash" class="note"></p>
+  <main>
+    <section class="stack">
+      <div class="panel">
+        <h2>User token</h2>
+        <details class="add-token" id="addToken" open>
+          <summary>Thêm user token</summary>
+          <label for="tokenName">Tên gợi nhớ</label>
+          <input id="tokenName" placeholder="Ví dụ: BM drama">
+          <label for="tokenBox">User token hoặc page token, mỗi token một dòng</label>
+          <textarea id="tokenBox" placeholder="Dán token vào đây"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="primary" id="btnImport" type="button">Thêm token</button>
+          </div>
+        </details>
+        <input id="tokenFilter" placeholder="Lọc user token">
+        <div class="accounts" id="accounts"></div>
+      </div>
+      <div class="panel">
+        <h2>Page theo user token</h2>
+        <p class="note">Bấm <b>Mở</b> để xem page của token. Bấm <b>Thu nhỏ</b> để gọn lại. Ô tick chọn mọi page của token đó.</p>
+        <input id="pageSearch" placeholder="Lọc tên, id hoặc token">
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" id="btnEvery" type="button">Chọn tất cả</button>
+          <button class="ghost" id="btnAll" type="button">Chọn đang lọc</button>
+          <button class="ghost" id="btnNone" type="button">Bỏ chọn</button>
+        </div>
+        <p class="note" id="pickCount">Chưa chọn page.</p>
+        <div class="box">
+          <b>Nhóm token</b>
+          <p class="note">Bấm nhóm để chọn mọi page của các token trong nhóm.</p>
+          <div class="chips" id="tokenGroups"></div>
+          <div class="row" style="margin-top:8px">
+            <input id="tokenGroupName" placeholder="Tên nhóm token" maxlength="80">
+            <button class="ghost" id="btnSaveTokenGroup" type="button">Lưu token đang chọn</button>
+          </div>
+        </div>
+        <div class="box">
+          <b>Nhóm page</b>
+          <p class="note">Bấm nhóm để chọn đúng các page đã lưu.</p>
+          <div class="chips" id="pageGroups"></div>
+          <div class="row" style="margin-top:8px">
+            <input id="pageGroupName" placeholder="Tên nhóm page" maxlength="80">
+            <button class="ghost" id="btnSavePageGroup" type="button">Lưu page đang chọn</button>
+          </div>
+        </div>
+        <div class="pages" id="pages"></div>
+      </div>
+    </section>
+    <section class="stack">
+      <div class="panel">
+        <div class="tabs" role="tablist">
+          <button class="tab is-on" id="tabNow" type="button" data-tab="modeNow" role="tab" aria-selected="true">Đăng ngay API</button>
+          <button class="tab" id="tabList" type="button" data-tab="modeList" role="tab" aria-selected="false">Hẹn giờ hàng loạt</button>
+          <button class="tab" id="tabDays" type="button" data-tab="modeDays" role="tab" aria-selected="false">Hẹn theo ngày</button>
+          <button class="tab" id="tabDirect" type="button" data-tab="modeDirect" role="tab" aria-selected="false">Đăng trực tiếp</button>
+        </div>
+
+        <h2 class="subhead">Tiêu đề</h2>
+        <div class="grid2">
+          <div>
+            <label for="postType">Loại bài</label>
+            <select id="postType">
+              <option value="video">Video</option>
+              <option value="photo">Ảnh</option>
+              <option value="text">Chữ</option>
+            </select>
+          </div>
+          <div>
+            <label for="captionMode">Cách lấy tiêu đề</label>
+            <select id="captionMode">
+              <option value="sequential">Lần lượt theo bài</option>
+              <option value="random">Random mỗi bài</option>
+            </select>
+          </div>
+        </div>
+        <label for="mediaFolder">Kho ảnh / video (folder chứa file media)</label>
+        <div class="row">
+          <input id="mediaFolder" placeholder="D:\media\inbox">
+          <button class="ghost pick" id="btnFolder" type="button">📂 Chọn ổ/folder</button>
+        </div>
+        <label for="postedFolder">Folder sau khi đăng (posted) — <b>CHUYỂN</b> file, không copy</label>
+        <div class="row">
+          <input id="postedFolder" placeholder="D:\media\posted">
+          <button class="ghost pick" id="btnPosted" type="button">📂 Chọn folder</button>
+        </div>
+        <p class="note">Đăng hoặc hẹn Facebook thành công thì file rời khỏi kho, chuyển vào folder này. Cùng ổ = đổi chỗ file. Khác ổ = chép rồi xóa nguồn. Để trống thì chuyển vào thư mục con da-dang cạnh file.</p>
+        <label class="check"><input id="useCaption" type="checkbox" checked> Dùng tiêu đề / caption</label>
+        <label for="captionFile">File tiêu đề (.txt hoặc .csv, mỗi dòng một tiêu đề)</label>
+        <div class="row">
+          <input id="captionFile">
+          <button class="ghost" id="btnCaption" type="button">Chọn</button>
+        </div>
+        <label for="captionText">Hoặc dán tiêu đề, mỗi dòng một bài</label>
+        <textarea id="captionText" class="short" placeholder="Dòng 1 là tiêu đề bài 1"></textarea>
+        <p class="note">Có chữ dán thì dùng chữ dán. Để trống thì lấy file. Bài chữ cần ít nhất tiêu đề, mở đầu hoặc link đăng.</p>
+
+        <div class="box">
+          <label class="check"><input id="leadOn" type="checkbox"> Mở đầu trước tiêu đề</label>
+          <div class="grid2">
+            <div>
+              <label for="leadMode">Cách lấy mở đầu và link đăng</label>
+              <select id="leadMode">
+                <option value="sequential">Lần lượt</option>
+                <option value="random">Random</option>
+              </select>
+            </div>
+          </div>
+          <label for="leadTemplates">Câu mở đầu, mỗi dòng một câu</label>
+          <textarea id="leadTemplates" class="short" placeholder="view full album :&#10;see more :"></textarea>
+          <label for="leadLinks">Link đăng trong tiêu đề, mỗi dòng một link</label>
+          <textarea id="leadLinks" class="short" placeholder="https://..."></textarea>
+          <p class="note">Bài ra dạng: câu mở đầu, xuống dòng link đăng, rồi tiêu đề. Link này không lấy từ kho comment.</p>
+        </div>
+
+        <div class="box">
+          <label class="check"><input id="titleOn" type="checkbox"> Title video ngắn, riêng với tiêu đề</label>
+          <div class="grid2">
+            <div>
+              <label for="titleMode">Cách lấy title</label>
+              <select id="titleMode">
+                <option value="sequential">Lần lượt</option>
+                <option value="random">Random</option>
+              </select>
+            </div>
+          </div>
+          <label for="titleFile">File title video</label>
+          <div class="row">
+            <input id="titleFile">
+            <button class="ghost" id="btnTitle" type="button">Chọn</button>
+          </div>
+          <label for="titleText">Hoặc dán title, mỗi dòng một title</label>
+          <textarea id="titleText" class="short" placeholder="Title ngắn bài 1"></textarea>
+          <p class="note">Chỉ gửi khi loại bài là video. Phần mô tả vẫn là mở đầu + link đăng + tiêu đề đầy đủ.</p>
+        </div>
+
+        <div class="box">
+          <label class="check"><input id="commentOn" type="checkbox"> Comment sau bài</label>
+          <div class="grid2">
+            <div>
+              <label for="commentMode">Cách lấy câu và link comment</label>
+              <select id="commentMode">
+                <option value="sequential">Lần lượt</option>
+                <option value="random">Random</option>
+              </select>
+            </div>
+            <div>
+              <label for="commentPerDay">Số bài có comment / page / ngày</label>
+              <input id="commentPerDay" type="number" min="0" max="100" value="0">
+            </div>
+          </div>
+          <label for="commentText">Câu comment, mỗi dòng một câu. Để trống nếu chỉ gửi link</label>
+          <textarea id="commentText" class="short" placeholder="see more :&#10;full album:"></textarea>
+          <label for="commentLinks">Link comment, mỗi dòng một link</label>
+          <textarea id="commentLinks" class="short" placeholder="https://..."></textarea>
+          <label for="commentFile">Hoặc file comment, khi hai ô trên để trống</label>
+          <div class="row">
+            <input id="commentFile">
+            <button class="ghost" id="btnComment" type="button">Chọn</button>
+          </div>
+          <label for="commentWhen">Khi hẹn giờ Facebook</label>
+          <select id="commentWhen">
+            <option value="immediate">Gửi comment ngay sau khi hẹn</option>
+            <option value="after_publish">Để chờ, bấm gửi khi bài đã public</option>
+          </select>
+          <p class="note">0 = mọi bài đều comment. Lần lượt lấy bài sớm nhất trong ngày. Random lấy đúng số đó. Link comment có URL thì gửi kèm thẻ link, Facebook từ chối thì gửi chữ.</p>
+        </div>
+        <label class="check"><input id="repeatMedia" type="checkbox"> Mỗi page dùng cùng thứ tự file, không chuyển sang thư mục da-dang</label>
+
+        <div id="modeNow" class="mode">
+          <h2 class="subhead">Đăng ngay API</h2>
+          <label for="nowCount">Số bài mỗi page</label>
+          <input id="nowCount" type="number" min="1" max="100" value="1">
+          <p class="note">Gọi Facebook ngay. Cùng một token cách nhau 30 giây. Token khác chạy song song. Dùng tiêu đề, mở đầu và link đăng ở trên.</p>
+          <div class="actions one">
+            <button class="primary" id="btnNow" type="button">Đăng ngay API</button>
+          </div>
+        </div>
+
+        <div id="modeList" class="mode" hidden>
+          <h2 class="subhead">Hẹn giờ hàng loạt</h2>
+          <label for="listDate">Ngày bắt đầu, cho dòng chỉ có giờ</label>
+          <input id="listDate" type="date">
+          <label for="listTimes">Các mốc, mỗi dòng một mốc</label>
+          <textarea id="listTimes" placeholder="09:00&#10;21:00&#10;09:00-10:00&#10;31/12/2026 19:00"></textarea>
+          <div class="grid2">
+            <div>
+              <label for="listCdMin">Cooldown tối thiểu (phút)</label>
+              <input id="listCdMin" type="number" min="0" max="1440" value="0">
+            </div>
+            <div>
+              <label for="listCdMax">Cooldown tối đa (phút)</label>
+              <input id="listCdMax" type="number" min="0" max="1440" value="0">
+            </div>
+          </div>
+          <p class="note" id="listHint">0 = đúng giờ đã viết. Lớn hơn 0 = bài sau cùng page cách bài trước ít nhất khoảng đó.</p>
+          <p class="note">Facebook nhận lịch từ 10 phút đến 180 ngày. Job xong thì tắt app được. Mỗi page một bộ mốc.</p>
+          <div class="actions one">
+            <button class="warn" id="btnSchedule" type="button">Hẹn giờ hàng loạt</button>
+          </div>
+        </div>
+
+        <div id="modeDays" class="mode" hidden>
+          <h2 class="subhead">Hẹn theo ngày</h2>
+          <label for="daysStart">Giờ bắt đầu ngày 1, giờ Việt Nam</label>
+          <input id="daysStart" type="datetime-local">
+          <div class="grid4">
+            <div>
+              <label for="daysCount">Số ngày</label>
+              <input id="daysCount" type="number" min="1" max="180" placeholder="3">
+            </div>
+            <div>
+              <label for="perDay">Bài / page / ngày</label>
+              <input id="perDay" type="number" min="1" max="20" placeholder="2">
+            </div>
+            <div>
+              <label for="gapMin">Cách bài tối thiểu</label>
+              <input id="gapMin" type="number" min="0" max="1440" value="60">
+            </div>
+            <div>
+              <label for="gapMax">Cách bài tối đa</label>
+              <input id="gapMax" type="number" min="0" max="1440" value="60">
+            </div>
+          </div>
+          <p class="note" id="daysHint">Điền số ngày và số bài mỗi ngày.</p>
+          <p class="note">Ngày 2, 3… lặp cùng giờ rồi cộng khoảng cách. Nhiều bài một ngày cách nhau ít nhất 1 phút. Hẹn Facebook, job xong thì tắt app được.</p>
+          <div class="actions one">
+            <button class="warn" id="btnDays" type="button">Hẹn theo ngày</button>
+          </div>
+        </div>
+
+        <div id="modeDirect" class="mode" hidden>
+          <h2 class="subhead">Đăng trực tiếp</h2>
+          <label for="directStart">Mốc giờ Việt Nam</label>
+          <input id="directStart" type="datetime-local">
+          <div class="grid2">
+            <div>
+              <label for="directCount">Số bài mỗi page</label>
+              <input id="directCount" type="number" min="1" max="100" value="1">
+            </div>
+            <div>
+              <label for="directInterval">Khoảng cách bài (phút)</label>
+              <input id="directInterval" type="number" min="1" max="10000" value="60">
+            </div>
+          </div>
+          <label for="directDelay">Chờ thêm bao nhiêu phút rồi mới comment</label>
+          <input id="directDelay" type="number" min="0" max="10080" value="0">
+          <p class="note">App đợi đến giờ rồi mới gọi Facebook. Giờ đã qua thì đăng ngay. Máy và app phải bật đến khi job xong. 0 phút = comment ngay sau bài.</p>
+          <div class="actions one">
+            <button class="warn" id="btnDirect" type="button">Đăng trực tiếp</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Tiến trình <span class="pct" id="jobPct">0%</span></h2>
+        <div class="progress-big" id="jobBar"><i id="jobBarFill"></i></div>
+        <p class="note" id="jobCurrent">Chưa chạy.</p>
+        <div id="jobs" class="scroll-box"></div>
+      </div>
+      <div class="panel">
+        <div class="row">
+          <h2 style="flex:1">Nhật ký</h2>
+          <button class="ghost" id="btnComments" type="button">Gửi comment đang chờ</button>
+          <a class="ghost" href="/api/logs.csv" style="padding:9px 12px;border-radius:8px;border:1px solid var(--line);text-decoration:none">Tải CSV</a>
+        </div>
+        <div id="logs" class="scroll-box"></div>
+      </div>
+    </section>
+  </main>
+  <div id="lock" class="lock">
+    <div class="panel lock-card">
+      <h2>Nhập key <span class="ver" id="lockVer"></span></h2>
+      <p class="note">Key gắn với máy này và có ngày hết hạn. Gửi mã máy để nhận key.</p>
+      <label for="machine">Mã máy</label>
+      <input id="machine" readonly>
+      <label for="keyBox">Key</label>
+      <textarea id="keyBox" placeholder="Dán key một dòng"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="primary" id="btnActivate" type="button">Kích hoạt</button>
+      </div>
+      <p id="lockMsg" class="bad"></p>
+    </div>
+  </div>
+  <div class="toast-wrap" id="toasts"></div>
+  <div id="ask" class="ask" hidden>
+    <div class="panel ask-card">
+      <h2 id="askTitle">Xác nhận</h2>
+      <p id="askBody"></p>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="askYes" type="button">Chạy</button>
+        <button class="ghost" id="askNo" type="button">Hủy</button>
+      </div>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

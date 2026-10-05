@@ -1,0 +1,36 @@
+{
+  "appId": "com.fbdangbai.admin",
+  "productName": "FB Dang Bai Admin",
+  "npmRebuild": false,
+  "extraMetadata": {
+    "main": "electron/admin-main.cjs"
+  },
+  "directories": {
+    "output": "dist-admin"
+  },
+  "files": [
+    "admin/**",
+    "electron/admin-main.cjs",
+    "src/license.js",
+    "src/time.js",
+    "src/home.js",
+    "keys/license-private.pem",
+    "package.json",
+    "!**/node_modules/**"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "shortcutName": "FB Dang Bai Admin",
+    "artifactName": "FB-DangBai-Admin-Setup-v${version}.${ext}"
+  }
+}

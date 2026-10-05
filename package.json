@@ -1,0 +1,60 @@
+{
+  "name": "fb-dang-bai",
+  "version": "1.1.10",
+  "private": true,
+  "description": "Đăng Page bằng user token: Đăng ngay API, hẹn giờ hàng loạt, hẹn theo ngày, đăng trực tiếp.",
+  "author": "trumrename",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "desktop": "electron .",
+    "test": "node scripts/self-test.mjs",
+    "build": "electron-rebuild -f -w better-sqlite3 && electron-builder --win nsis --x64",
+    "build:admin": "electron-builder --config electron-builder.admin.json --win nsis --x64"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1"
+  },
+  "devDependencies": {
+    "electron": "^42.7.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.fbdangbai.app",
+    "productName": "FB Dang Bai",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**",
+      "public/**",
+      "electron/main.cjs",
+      "electron/preload.cjs",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "FB Dang Bai",
+      "artifactName": "FB-DangBai-Setup-v${version}.${ext}"
+    }
+  }
+}

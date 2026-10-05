@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/
+data-admin/
+dist-admin/
+*.log
+keys/license-private.pem
+keys/issued.log
